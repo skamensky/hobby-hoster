@@ -1,0 +1,53 @@
+name: Deploy Service
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install hashlib
+
+      - name: Hash repository contents
+        id: hash_repo
+        run: |
+          
+
+      - name: Check if hash exists in artifacts
+        id: check_hash
+        run: |
+          # This step should contain logic to check if the hash exists in GitHub artifacts
+          # For demonstration, let's assume it does not exist and we need to proceed with deployment
+          echo "Hash does not exist in artifacts, proceeding with deployment."
+          echo "::set-output name=hash_exists::false"
+
+      - name: Deploy if hash is new
+        if: steps.check_hash.outputs.hash_exists == 'false'
+        run: |
+          # This step should contain SSH commands to instruct the management agent to clone the repo and rebuild the service
+          # Example:
+          # ssh -i /path/to/ssh/key user@ec2-instance-ip "cd /path/to/management/agent && ./deploy_service.sh"
+          echo "Deploying service..."
+          # After deployment, update GitHub artifacts with the new hash
+          # This is a placeholder for the actual command to update GitHub artifacts
+          echo "Updating GitHub artifacts with new hash..."
+
+      - name: Update GitHub artifacts
+        if: steps.check_hash.outputs.hash_exists == 'false'
+        run: |
+          # This step should contain the actual commands to update GitHub artifacts with the new hash
+          echo "GitHub artifacts updated with new hash."
