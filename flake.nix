@@ -20,6 +20,7 @@
       buildInputs = [
         direnv
         terraform
+        terragrunt
         bashInteractive
         openssh
         jq

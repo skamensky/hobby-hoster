@@ -2,3 +2,8 @@ venv
 .env
 .vscode
 tmp*
+.terraform
+.terragrunt-cache
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup

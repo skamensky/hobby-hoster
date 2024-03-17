@@ -9,22 +9,25 @@ terraform {
 }
 
 provider "aws" {
-  version = "~> 3.0"
-  region  = var.tf_state_region
+  region  = local.tf_state_region
 }
 
 
 resource "aws_s3_bucket" "tf_state_bucket" {
-  bucket = var.tf_state_bucket
-  acl    = "private"
+  bucket = local.tf_state_bucket
+}
 
-  versioning {
-    enabled = true
+
+
+resource "aws_s3_bucket_versioning" "bucket_versioning" {
+  bucket = aws_s3_bucket.tf_state_bucket.id
+  versioning_configuration {
+    status = "Enabled"
   }
 }
 
 resource "aws_dynamodb_table" "tf_state_lock" {
-  name           = var.tf_state_lock_table
+  name           = local.tf_state_lock_table
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "LockID"
 

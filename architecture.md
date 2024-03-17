@@ -98,3 +98,32 @@ Terraform will read the .env file for secrets
 ### Manual steps
 
 For now, I'm manually updating A records in the cloudflare dashboard. They don't support changing nameservers and I can't transfer the domain to a different registrar for the next 60 days.
+
+
+### Run terraform:
+Initial: in bootstrap, do terraform init and terraform apply
+After: Generate the terragrunt files for each region by running ./scripts/gen_config.py
+
+Then, run the following command to apply the changes to the ec2 instance:
+```sh
+cd terraform/region/REGION_NAME
+terragrunt apply
+```
+
+#### Config
+When making configuation changes to config.json, there is some generation that needs to happen. This is done by running the following command:
+```sh
+./scripts/gen_config.py
+```
+
+
+### allowed ssh sources
+The allowed ssh sources are defined in the config.json file. This is a list of ip addresses that are allowed to ssh into the ec2 instance.
+
+To add your current machine, run the following commands:
+```sh
+./scripts/allow_current_machine_ssh.sh
+cd terraform/region/REGION_NAME
+terragrunt apply
+
+

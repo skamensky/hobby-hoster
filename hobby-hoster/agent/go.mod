@@ -1,12 +1,13 @@
 module github.com/skamensky/hobby-hoster/hobby-hoster/agent
 
-go 1.21.5
+go 1.21
 
 replace github.com/skamensky/hobby-hoster/hobby-hoster/agent => ./..
 
 require (
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/spf13/cobra v1.8.0
+	gopkg.in/yaml.v2 v2.2.4
 )
 
 require (

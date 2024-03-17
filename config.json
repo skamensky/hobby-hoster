@@ -1,50 +1,39 @@
 {
   "projects": [
     {
-      "repo": "https://github.com/skamensky/fun-n-games",
-      "domain": "fun-n-games"
-    },
-    {
-      "repo": "https://github.com/skamensky/multi-docs",
-      "domain": "multi-docs"
+      "repo": "https://github.com/skamensky/sample-hobby-hosted-project",
+      "domain": "hello-world"
     }
   ],
   "regions": [
     {
-      "region": "eu-south-1",
-      "ami": "ami-019c1e0f36fa08c62",
-      "availability_zone": "eu-south-1a",
-      "continents":[
+      "region": "eu-west-3",
+      "ami": "ami-00c71bd4d220aa22a",
+      "availability_zone": "eu-west-3a",
+      "instance_type": "t2.micro",
+      "attached_volume_size": 100,
+      "continents": [
         "EU",
         "AF",
         "AS",
         "AN"
       ]
-    },
-    {
-        "region": "us-east-1",
-        "ami": "ami-080e1f13689e07408",
-        "availability_zone": "us-east-1a",
-        "continents":[
-          "NA",
-          "SA",
-          "OC"
-        ]
     }
   ],
-  "allowed_ssh_sources": [
-    "93.172.215.124"
+    "allowed_ssh_sources": [
+      "93.172.215.124"
   ],
-  "ssh":{
-    "user":"ubuntu",
-    "public_key_path":"~/.ssh/kelev_dev.pub",
-    "private_key_path":"~/.ssh/kelev_dev"
+  "ssh": {
+    "user": "ubuntu",
+    "public_key_path": "~/.ssh/kelev_dev.pub",
+    "private_key_path": "~/.ssh/kelev_dev"
   },
-  "tf_state":{
-    "region":"us-east-1",
-    "bucket":"terraform-state-kelev.dev",
-    "lock_table":"terraform-state-lock-kelev.dev"
+  "tf_state": {
+    "region": "us-east-1",
+    "bucket": "terraform-state-kelev.dev",
+    "lock_table": "terraform-state-lock-kelev.dev",
+    "key": "kelev.dev/terraform.tfstate"
   },
-  "domain_name":"kelev.dev",
-  "base_tag":"hobby-hoster"
+  "domain_name": "kelev.dev",
+  "base_tag": "hobby-hoster"
 }
