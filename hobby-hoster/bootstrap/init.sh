@@ -38,7 +38,7 @@ fi
 
 if ! mount | grep -q '/mnt/data'; then
   mkdir -p /mnt/data
-  # Mount EBS Volume (assuming it's attached and available at /dev/sdh)
+  # Mount EBS Volume (assuming it's attached and available at /dev/$DEVICE_NAME)
   mount /dev/$DEVICE_NAME /mnt/data
 fi
 
@@ -58,36 +58,12 @@ systemctl restart docker
 mkdir -p /mnt/data/traefik
 # Make sure to adapt the path in your Traefik Docker commands or configurations to use /mnt/data/traefik for configurations and certificates
 
-GO_VERSION="1.21.8"
-GO_WORKSPACE="/mnt/data/go"
-GO_MODULE_CACHE="/mnt/data/go/pkg/mod"
-
-# Ensure the directories exist
-mkdir -p "$GO_WORKSPACE"
-mkdir -p "$GO_MODULE_CACHE"
-
-
-
-if ! go version &> /dev/null; then
-  echo "Go is not installed. Installing Go $GO_VERSION."
-  wget https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz
-  sudo tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz
-  echo "export PATH=$PATH:/usr/local/go/bin" >> $HOME/.profile
-  echo "export GOPATH=$GO_WORKSPACE" >> $HOME/.profile
-  echo "export GOMODCACHE=$GO_MODULE_CACHE" >> $HOME/.profile
-  source $HOME/.profile
-else
-  echo "Go is already installed."
-fi
-
-mkdir -p /mnt/data/agent
-# Setup and install the management agent
-(cd /tmp/agent && go build -o /mnt/data/agent/cli cli/main.go)
-
 mkdir -p /mnt/data/projects
 chown -R ubuntu:ubuntu /mnt/data
 chown -R ubuntu:ubuntu /mnt/data/*
-
+usermod -aG docker ubuntu
 
 # start traefik
+
+# TODO
 

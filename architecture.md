@@ -89,7 +89,7 @@ The `projects` object in `config.json` file acts as a central manifest for manag
 
 Software to run this project is maintained in a nix flake. The flake will contain all the software needed to run the project.
 
-For more information on nix, see the nix flake documentation.
+For more information on nix, see the nix flake documentation. I use `nix develop`
 
 ### Secrets
 
@@ -125,5 +125,33 @@ To add your current machine, run the following commands:
 ./scripts/allow_current_machine_ssh.sh
 cd terraform/region/REGION_NAME
 terragrunt apply
+```
+
+### Making changes to the init.sh script
+
+Terraform considers the init.sh a resource and can detect changes. init.sh should run assuming it can be run multiple times on the same machine. This means that if you make changes to the init.sh script, you need to run the following command to update the ec2 instance:
+```sh
+cd terraform/region/REGION_NAME
+terragrunt apply
+```
 
 
+
+When making changes to the agent, you need to build the agent and then run the following command to update the agent on the ec2 instance:
+```sh
+cd terraform/region/REGION_NAME
+terragrunt apply
+```
+
+
+### Deployment
+
+The `deploy.py` script automates the deployment process for projects defined in the `config.json` file. It performs several key functions:
+
+1. **SSH Connection Setup**: Establishes an SSH connection to EC2 instances in specified regions using credentials from `config.json` or environment variables.
+
+2. **Service Synchronization**: Compares the current services deployed on the EC2 instance with the services defined in `config.json`. It identifies new services to deploy, existing services to update based on the latest commit, and services to remove.
+
+3. **Project Deployment**: For new or updated services, it instructs the remote agent to clone the project repositories and rebuild the services. For services that are no longer needed, it commands the agent to remove them.
+
+4. **Infrastructure Updates**: Runs necessary scripts (`allow_current_machine_ssh.sh` and `gen_config.py`) to update the SSH access list and regenerate configuration files. It then applies Terraform configurations non-interactively across all specified regions to update the infrastructure accordingly.

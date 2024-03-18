@@ -27,7 +27,7 @@ resource "aws_instance" "ec2_instance" {
 resource "null_resource" "init_script_exec" {
   # Ensures this resource is recreated if the instance, init script, or volume attachment changes
   triggers = {
-    instance_id = aws_instance.ec2_instance.id
+    instance_id          = aws_instance.ec2_instance.id
     volume_attachment_id = aws_volume_attachment.ebs_attach.id
     init_script_hash     = filesha256("${local.project_root}/hobby-hoster/bootstrap/init.sh")
   }
@@ -45,18 +45,12 @@ resource "null_resource" "init_script_exec" {
   provisioner "remote-exec" {
     inline = [
       "sudo rm -rf /tmp/bootstrap/",
-      "sudo rm -rf /tmp/agent/",
     ]
   }
 
   provisioner "file" {
     source      = "${local.project_root}/hobby-hoster/bootstrap"
     destination = "/tmp/bootstrap/"
-  }
-
-  provisioner "file" {
-    source      = "${local.project_root}/hobby-hoster/agent"
-    destination = "/tmp/agent/"
   }
 
   # Execute the script after the EBS volume is attached since it depends on it, passing the attached volume size as the first argument
@@ -70,11 +64,59 @@ resource "null_resource" "init_script_exec" {
     aws_instance.ec2_instance,
     aws_volume_attachment.ebs_attach,
   ]
+
+}
+
+
+resource "null_resource" "build_agent" {
+  # This section is responsible for setting up the build agent on the EC2 instance.
+  # It triggers the build agent setup when there are changes detected in the bootstrap or the agent folder's content.
+  triggers = {
+    bootstrap_triggers = null_resource.init_script_exec.id
+    agent_folder_hash    = join("", [for f in fileset("${local.project_root}/hobby-hoster/agent", "**/*") : filesha256("${local.project_root}/hobby-hoster/agent/${f}")])
+  }
+
+  # Define connection details
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(local.ssh_private_key_path)
+    host        = aws_instance.ec2_instance.public_ip
+  }
+
+  // this is here because provisioner "file" doesn't reupload if it detects the target file is already there (even if the file content is changed).
+  // this forces the file to be reuploaded
+  provisioner "remote-exec" {
+    inline = [
+      "sudo rm -rf /tmp/agent/",
+      "sudo rm -rf /tmp/bootstrap/",
+    ]
+  }
+
+
+  provisioner "file" {
+    source      = "${local.project_root}/hobby-hoster/bootstrap"
+    destination = "/tmp/bootstrap/"
+  }
+
+  provisioner "file" {
+    source      = "${local.project_root}/hobby-hoster/agent"
+    destination = "/tmp/agent/"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo bash /tmp/bootstrap/build_agent.sh",
+    ]
+  }
+  depends_on = [
+    null_resource.init_script_exec
+  ]
 }
 
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
-  
+
   tags = {
     Name = "${local.base_tag}-main-vpc-${var.region_name}"
   }
@@ -108,10 +150,10 @@ resource "aws_route_table_association" "main" {
 
 resource "aws_subnet" "main" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              =  "10.0.1.0/24"
+  cidr_block              = "10.0.1.0/24"
   availability_zone       = local.region.availability_zone
   map_public_ip_on_launch = true
-  
+
   tags = {
     Name = "${local.base_tag}-main-subnet-${var.region_name}"
   }
@@ -122,7 +164,7 @@ resource "aws_security_group" "allow_web" {
   name        = "allow_web_traffic-${var.region_name}"
   description = "Allow web inbound traffic"
   vpc_id      = aws_vpc.main.id
-  
+
 
   tags = {
     Name = "${local.base_tag}-allow-web-${var.region_name}"
@@ -176,9 +218,6 @@ resource "aws_security_group" "allow_ssh" {
   }
 }
 
-output "instance_public_ips" {
-  value = {
-  # todo
-  }
-  description = "Mapping of regions to instance public IPs"
+output "public_ip" {
+  value = aws_instance.ec2_instance.public_ip
 }

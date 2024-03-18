@@ -1,9 +1,17 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_DIR=$(dirname "$0")
 
 # Get the public IP of the running machine
 public_ip=$(curl -s https://ipinfo.io/ip)
+
+# if public_ip is empty, exit
+if [ -z "$public_ip" ]; then
+  echo "Public IP is empty, exiting"
+  exit 1
+fi
 
 # Check if the IP is already in the allowed_ssh_sources array
 allowed_ips=$(jq -r '.allowed_ssh_sources[]' "$SCRIPT_DIR/../config.json")

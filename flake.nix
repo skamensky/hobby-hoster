@@ -1,5 +1,5 @@
 {
-  description = "All the software needed to run hobby hoster";
+  description = "All the software needed to develop and deploy hobby hoster";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
@@ -18,7 +18,6 @@
       name = "hobby-hoster";
       src = ./.;
       buildInputs = [
-        direnv
         terraform
         terragrunt
         bashInteractive
@@ -29,7 +28,9 @@
         python3
         python3Packages.boto3
         python3Packages.click
+        python3Packages.paramiko
         go
+        nmap # for debugging
       ];
     };
   };
