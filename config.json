@@ -3,6 +3,10 @@
     {
       "repo": "https://github.com/skamensky/sample-hobby-hosted-project",
       "subdomain": "hello-world"
+    },
+    {
+      "repo": "https://github.com/skamensky/sample-hobby-hosted-project",
+      "subdomain": "hello-world-2"
     }
   ],
   "regions": [
@@ -22,7 +26,8 @@
   ],
   "allowed_ssh_sources": [
     "93.172.210.252",
-    "93.172.215.83"
+    "93.172.215.83",
+    "93.172.209.81"
   ],
   "ssh": {
     "user": "ubuntu",
@@ -36,5 +41,6 @@
     "key": "kelev.dev/terraform.tfstate"
   },
   "domain_name": "kelev.dev",
+  "email": "shmuelkamensky@gmail.com",
   "base_tag": "hobby-hoster"
 }

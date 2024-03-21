@@ -155,3 +155,29 @@ The `deploy.py` script automates the deployment process for projects defined in 
 3. **Project Deployment**: For new or updated services, it instructs the remote agent to clone the project repositories and rebuild the services. For services that are no longer needed, it commands the agent to remove them.
 
 4. **Infrastructure Updates**: Runs necessary scripts (`allow_current_machine_ssh.sh` and `gen_config.py`) to update the SSH access list and regenerate configuration files. It then applies Terraform configurations non-interactively across all specified regions to update the infrastructure accordingly.
+
+
+## Docker Compose Labels
+
+Any service containing the label "hobby-hoster" will be managed by the hobby-hoster agent. The agent will look for the following labels in the docker-compose file:
+
+- `hobby-hoster.enable=true`: Enables the hobby-hoster agent for the service, making it discoverable by the hobby-hoster agent.
+
+
+The following labels are injected to the docker-compose.yml file for each service.
+
+
+- `traefik.enable=true`: Enables Traefik for the service, making it discoverable by Traefik.
+- `traefik.http.routers.<service-name>.rule=Host(\`<subdomain>.kelev.dev\`)`: Defines the rule for routing traffic to the service based on the host name.
+- `traefik.http.routers.<service-name>.entrypoints=web`: Specifies that the service should be accessible over the HTTP entrypoint.
+- `traefik.http.routers.<service-name>.entrypoints=websecure`: Specifies that the service should be accessible over the HTTPS entrypoint.
+- `traefik.http.services.<service-name>.loadbalancer.server.port=<port>`: Specifies the internal port of the service that Traefik should forward traffic to.
+
+
+It's not supported to have multiple services with hobby-hoster.enable=true in the same docker-compose file. This is because the hobby-hoster agent will forward all subdomains to the one service. 
+
+Additionally, a service with hobby-hoster.enable=true must expose port 80. This is not currently validated, but will result in errors during deployment.
+
+Additionally, any ports mapping to the host port are modified to a randomly allocated port, so as not to conflict with other services.
+
+Lastly the network "traefik-public" is added to the docker-compose file. This is the network that traefik will use to route traffic to the service. If you already have a custom network, this is unsupported.

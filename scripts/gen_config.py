@@ -14,6 +14,65 @@ with open(config_path, 'r') as config_file:
     config = json.load(config_file)
 
 
+def nice_path_name(path:Path):
+    return f"{path.parent.name}/{path.name}"
+
+def generate_traefik_yml():
+    template = dedent(f'''
+    global:
+      checkNewVersion: false
+      sendAnonymousUsage: false
+
+    entryPoints:
+      web:
+        address: ":80"
+        http:
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+      websecure:
+        address: ":443"
+
+    certificatesResolvers:
+      httpsResolver:
+        acme:
+          email: {config['email']}
+          httpChallenge:
+            entryPoint: web
+
+    providers:
+      docker:
+        watch: true
+        exposedByDefault: false
+        network: "traefik-public"
+    ''').strip()
+    traefik_yml_path = root_dir /'hobby-hoster' / 'bootstrap' / 'traefik' / 'traefik.yml'
+    file_exists = traefik_yml_path.exists()
+    if file_exists and traefik_yml_path.read_text() == template:
+        print(f"Traefik configuration is already up to date at {nice_path_name(traefik_yml_path)}")
+        return
+    with open(traefik_yml_path, 'w') as traefik_yml:
+        traefik_yml.write(template)
+        print(f"Traefik configuration has been generated at {nice_path_name(traefik_yml_path)}")
+
+def validate_config():
+    subdomains = [project['subdomain'] for project in config['projects']]
+    if len(subdomains) != len(set(subdomains)):
+        raise ValueError("Duplicate subdomains found in config.json")
+
+    expected_keys = ["projects", "regions", "ssh", "tf_state", "domain_name", "base_tag",'email']
+    missing_keys = [key for key in expected_keys if key not in config]
+    if missing_keys:
+        raise KeyError(f"Missing expected keys in config.json: {', '.join(missing_keys)}")
+
+    ssh_keys = ["public_key_path", "private_key_path"]
+    missing_ssh_keys = [key for key in ssh_keys if not Path(config['ssh'][key]).expanduser().exists()]
+    if missing_ssh_keys:
+        raise FileNotFoundError(f"Missing SSH keys: {', '.join(missing_ssh_keys)}")
+
+    print("Config is valid")
+    
 def generate_main_tf():
     # Generate the main.tf content with auto-generated comment
     main_tf_content = dedent(f"""\
@@ -44,15 +103,19 @@ def generate_main_tf():
     """)
 
     output_path = root_dir / 'terraform' / 'main' / 'modules' / 'region_agnostic_deployment' / 'main.tf'
+    # Only write if there's a difference between the existing file and the generated content
 
-    # Write the generated content to the main.tf file
+    file_exists = output_path.exists()
+    if file_exists and output_path.read_text() == main_tf_content:
+        print(f"main.tf is already up to date at {nice_path_name(output_path)}")
+        return
+
     with open(output_path, 'w') as output_file:
         output_file.write(main_tf_content)
-
-    print(f"main.tf has been generated successfully at {output_path}")
+        print(f"main.tf has been generated successfully at {nice_path_name(output_path)}")
 
 import shutil
-def gen_region_terragrunt():
+def generate_region_terragrunt():
     regions_dir = root_dir / 'terraform' / 'main' / 'regions'
     # Ensure the regions directory exists
     regions_dir.mkdir(parents=True, exist_ok=True)
@@ -102,8 +165,10 @@ def gen_region_terragrunt():
         return
 
 def main():
+    validate_config()
     generate_main_tf()
-    gen_region_terragrunt()
+    generate_region_terragrunt()
+    generate_traefik_yml()
 
 
 if __name__=="__main__":

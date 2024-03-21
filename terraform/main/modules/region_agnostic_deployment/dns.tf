@@ -1,5 +1,6 @@
 /*
-// recomment this in when I can transfer the domain out of CF
+// recomment this in when I can transfer the domain out of CF.
+See  https://community.cloudflare.com/t/do-i-just-need-to-wait/629208
 locals {
   regions_and_continents = flatten([
     for region in var.regions : [

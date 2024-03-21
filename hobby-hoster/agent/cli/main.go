@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"text/template"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
@@ -67,88 +66,6 @@ func (c *CmdWrap) ErrorAsJson() string {
 	}
 	jsonError, _ := json.Marshal(errorMap)
 	return string(jsonError)
-}
-
-// Define a template for the Traefik dynamic configuration
-const traefikConfigTemplate = `
-[http.routers]
-  [http.routers.{{.Subdomain}}]
-    rule = "Host({{.subdomain}}.{{.domain}})"
-    service = "{{.subdomain}}"
-[http.services]
-  [http.services.{{.subdomain}}.loadBalancer]
-    [[http.services.{{.subdomain}}.loadBalancer.servers]]
-      url = "http://{{.subdomain}}:80"
-`
-
-func removeSubdomainFromTreafik(subdomain string) error {
-	// Remove the subdomain configuration file from Traefik's dynamic configuration directory
-	filePath := filepath.Join("/mnt/data/traefik", subdomain+".toml")
-	if err := os.Remove(filePath); err != nil {
-		return fmt.Errorf("failed to remove subdomain configuration for %s: %w", subdomain, err)
-	}
-
-	// Reload Traefik to apply changes
-	if err := reloadTraefik(); err != nil {
-		return fmt.Errorf("failed to reload Traefik after removing subdomain %s: %w", subdomain, err)
-	}
-
-	return nil
-}
-
-// Function to add subdomain to Traefik
-func addSubdomainToTraefik(subdomain string, domain string) error {
-	// Prepare the data for the template
-	data := map[string]string{
-		"subdomain": subdomain,
-		"domain":    domain,
-	}
-
-	// Create a new template and parse the configuration into it
-	t := template.New("traefikConfig")
-	t, err := t.Parse(traefikConfigTemplate)
-	if err != nil {
-		return err
-	}
-
-	// Execute the template and write the output to a file
-	filePath := filepath.Join("/mnt/data/traefik", subdomain+".toml")
-	file, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	err = t.Execute(file, data)
-	if err != nil {
-		return err
-	}
-
-	// Reload Traefik
-	err = reloadTraefik()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Function to reload Traefik
-func reloadTraefik() error {
-	// Traefik can be reloaded by sending a SIGHUP signal
-	// Get the Traefik process ID
-	pid, err := exec.Command("pidof", "traefik").Output()
-	if err != nil {
-		return err
-	}
-
-	// Send the SIGHUP signal
-	err = exec.Command("kill", "-HUP", string(pid)).Run()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type Service struct {
@@ -210,6 +127,162 @@ func initializePortFile(restartCount bool) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func alterDockerComposeFile(labels []string, fullProjectDir string) error {
+	err := allocatePorts(fullProjectDir)
+
+	if err != nil {
+		return err
+	}
+
+	err = addTraefikToDockerCompose(labels, fullProjectDir)
+
+	return err
+}
+
+func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
+	dockerComposeFilePath := filepath.Join(fullProjectDir, "docker-compose.yml")
+	if _, err := os.Stat(dockerComposeFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("docker-compose.yml does not exist in project directory: %s", fullProjectDir)
+	}
+
+	input, err := os.ReadFile(dockerComposeFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read docker-compose.yml: %v", err)
+	}
+
+	var data map[string]interface{}
+	if err := yaml.Unmarshal(input, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal docker-compose.yml: %v", err)
+	}
+
+	hobbyHosterEnabledCount := 0
+
+	services, ok := data["services"].(map[interface{}]interface{})
+	if !ok {
+		return errors.New("docker-compose.yml is missing 'services' section")
+	}
+
+	for _, service := range services {
+		serviceMap, ok := service.(map[interface{}]interface{})
+		if !ok {
+			return errors.New("failed to assert service as map")
+		}
+
+		var labelsSlice []interface{}
+		existingLabels, exists := serviceMap["labels"]
+		if !exists {
+			// no labels
+			continue
+		}
+		switch v := existingLabels.(type) {
+		case []interface{}:
+			labelsSlice = v
+		case map[interface{}]interface{}:
+			for key, val := range v {
+				labelStr := fmt.Sprintf("%v=%v", key, val)
+				labelsSlice = append(labelsSlice, labelStr)
+			}
+		default:
+			return errors.New("unsupported label format in docker-compose.yml")
+		}
+
+		hobbyHosterEnabled := false
+		// check if hobbyHoster.enable is present in labels:
+		for _, label := range labelsSlice {
+			labelStr, ok := label.(string)
+			if !ok {
+				return errors.New("failed to assert label as string")
+			}
+			if strings.Contains(labelStr, "hobby-hoster.enable=true") {
+				hobbyHosterEnabled = true
+			}
+		}
+
+		if !hobbyHosterEnabled {
+			continue
+		}
+
+		hobbyHosterEnabledCount++
+
+		for _, label := range labels {
+			labelsSlice = append(labelsSlice, label)
+		}
+
+		uniqueLabels := make([]interface{}, 0)
+		seen := make(map[string]bool)
+		for _, label := range labelsSlice {
+			labelStr, ok := label.(string)
+			if !ok {
+				return errors.New("non-string label found in docker-compose.yml")
+			}
+			if _, exists := seen[labelStr]; !exists {
+				seen[labelStr] = true
+				uniqueLabels = append(uniqueLabels, labelStr)
+			}
+		}
+		labelsSlice = uniqueLabels
+
+		serviceMap["labels"] = labelsSlice
+
+		networks, ok := serviceMap["networks"].([]interface{})
+		if ok {
+			if len(networks) != 1 || networks[0] != "traefik-public" {
+				return errors.New("custom networks are not supported for services with 'hobby-hoster.enable=true'")
+			}
+		} else {
+			serviceMap["networks"] = []interface{}{"traefik-public"}
+		}
+	}
+
+	if hobbyHosterEnabledCount == 0 {
+		fmt.Println("No services with 'hobby-hoster.enable=true' found in docker-compose.yml")
+		return nil
+	} else if hobbyHosterEnabledCount > 1 {
+		return errors.New("multiple services with 'hobby-hoster.enable=true' found in docker-compose.yml")
+	}
+
+	networks, ok := data["networks"].(map[interface{}]interface{})
+	if !ok {
+		networks = make(map[interface{}]interface{})
+		networks["traefik-public"] = map[string]interface{}{
+			"external": true,
+		}
+		data["networks"] = networks
+
+	}
+	if len(networks) != 1 {
+		return errors.New("multiple networks are not supported for services with 'hobby-hoster.enable=true'")
+	} else if _, exists := networks["traefik-public"]; !exists {
+		return errors.New("the existing network must be named 'traefik-public'")
+	}
+
+	// Reordering the map to have 'version', 'services', 'networks' in order
+	orderedData := yaml.MapSlice{}
+
+	// Extracting 'version', 'services', 'networks' in the specified order
+	for _, key := range []string{"version", "services", "networks"} {
+		if value, ok := data[key]; ok {
+			orderedData = append(orderedData, yaml.MapItem{Key: key, Value: value})
+		}
+	}
+
+	// Marshalling the ordered data instead of the original map
+	output, err := yaml.Marshal(&orderedData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated docker-compose.yml with ordered sections: %v", err)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated docker-compose.yml: %v", err)
+	}
+
+	if err := os.WriteFile(dockerComposeFilePath, output, 0644); err != nil {
+		return fmt.Errorf("failed to write updated docker-compose.yml: %v", err)
+	}
+
 	return nil
 }
 
@@ -382,7 +455,7 @@ var listServicesCmd = &cobra.Command{
 	},
 }
 
-func rebuildService(domain string, subdomain string) error {
+func rebuildService(domain string, subdomain string, extraTraefikLabels []string) error {
 	fullProjectDir := getProjectPath(subdomain)
 
 	if _, err := os.Stat(fullProjectDir); os.IsNotExist(err) {
@@ -404,7 +477,21 @@ func rebuildService(domain string, subdomain string) error {
 	if cmdBuild.Error() != nil {
 		return fmt.Errorf("Failed to run docker compose build: %v", cmdBuild.Error())
 	}
-	err := allocatePorts(fullProjectDir)
+
+	baseTraefikLabels := []string{
+		"traefik.enable=true",
+		fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", subdomain, subdomain, domain),
+		fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", subdomain),
+		fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=httpsResolver", subdomain),
+		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=80", subdomain),
+	}
+
+	allLabels := append(baseTraefikLabels, extraTraefikLabels...)
+	err := alterDockerComposeFile(allLabels, fullProjectDir)
+	if err != nil {
+		return err
+	}
+
 	if err != nil {
 		return err
 	}
@@ -412,14 +499,6 @@ func rebuildService(domain string, subdomain string) error {
 	cmdUp.Run()
 	if cmdUp.Error() != nil {
 		return errors.New(fmt.Sprintf("Failed to run docker compose up: %v", cmdUp.Error()))
-	}
-	err := addSubdomainToTraefik(subdomain, domain)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to add subdomain to Traefik: %v", err))
-	}
-	err = reloadTraefik()
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to reload Traefik: %v", err))
 	}
 
 	return nil
@@ -437,24 +516,28 @@ func removeService(subdomain string) error {
 		return errors.New(fmt.Sprintf("Failed to run docker compose down: %v", err))
 	}
 
-	err = removeSubdomainFromTreafik(subdomain)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to remove subdomain from Traefik: %v", err))
-	}
-
-	err = reloadTraefik()
-
 	return nil
 }
 
 var rebuildCmd = &cobra.Command{
-	Use:   "rebuild [domain] [subdomain1] [subdomain2] ...",
+	Use:   `rebuild --json '{"domain":"example.com","subdomains":[{"subdomain":"sub1","extra_traefik_labels":["label1"]},{"subdomain":"sub2","extra_traefik_labels":["label2"]}]}'`,
 	Short: "Rebuild services",
-	Long:  `This command rebuilds all services or a specific service. Pass '--all' to rebuild all services. Alternatively, you can pass multiple subdomains to rebuild specific services.`,
-	Args:  cobra.MinimumNArgs(1),
+	Long:  `This command rebuilds all services based on a JSON input. The JSON should specify the domain, subdomains, and any extra Traefik labels for each subdomain.`,
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		domain := args[0]
-		subdomains := args[1:]
+		var input struct {
+			Domain     string `json:"domain"`
+			Subdomains []struct {
+				Subdomain          string   `json:"subdomain"`
+				ExtraTraefikLabels []string `json:"extra_traefik_labels"`
+			} `json:"subdomains"`
+		}
+
+		if err := json.Unmarshal([]byte(args[0]), &input); err != nil {
+			return err
+		}
+
+		domain := input.Domain
 		var rebuildErrors []string
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 
@@ -475,24 +558,10 @@ var rebuildCmd = &cobra.Command{
 					return err
 				}
 			}
-
-			services, err := listServices()
-			if err != nil {
-				if jsonOutput {
-					errorJson, _ := json.Marshal(map[string]interface{}{"error": err.Error()})
-					fmt.Println(string(errorJson))
-					return nil
-				} else {
-					return err
-				}
-			}
-			for _, service := range services {
-				subdomains = append(subdomains, service.Subdomain)
-			}
 		}
 
-		for _, subdomain := range subdomains {
-			err := rebuildService(domain, subdomain)
+		for _, subdomain := range input.Subdomains {
+			err := rebuildService(domain, subdomain.Subdomain, subdomain.ExtraTraefikLabels)
 			if err != nil {
 				rebuildErrors = append(rebuildErrors, fmt.Sprintf("Failed to rebuild service %v repository: %v", subdomain, err))
 				continue
@@ -514,6 +583,7 @@ var rebuildCmd = &cobra.Command{
 		return nil
 	},
 }
+
 var cloneCmd = &cobra.Command{
 	Use:   "clone [repo-url] [subdomain]...",
 	Short: "Clone GitHub repositories",

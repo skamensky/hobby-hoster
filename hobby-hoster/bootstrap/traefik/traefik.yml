@@ -1,0 +1,27 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+certificatesResolvers:
+  httpsResolver:
+    acme:
+      email: shmuelkamensky@gmail.com
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  docker:
+    watch: true
+    exposedByDefault: false
+    network: "traefik-public"

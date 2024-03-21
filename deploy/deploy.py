@@ -4,12 +4,18 @@ import subprocess
 import paramiko
 from io import StringIO
 from pathlib import Path
+from typing import Union
 
 ROOT_DIR = Path(__file__).parent.parent
 
 
-def run_agent_command(ssh_client, command, args):
-    args = " ".join(args)
+def run_agent_command(ssh_client, command, args:Union[dict,list[str]]):
+    if type(args) is dict:
+        args = json.dumps(args)
+        args = args.replace('"', '\\"')
+        args = f'"{args}"'
+    else:
+        args = " ".join(args)
     stdin, stdout, stderr = ssh_client.exec_command(f'/mnt/data/agent/cli {command} {args} --json')
     error = stderr.read().decode()
     if error:
@@ -39,14 +45,24 @@ def get_current_services(projects):
 def rebuild_projects(ssh_client, projects_to_build, domain):
 
     # tell agent to clone:
+
     clone_args = []
     for project in projects_to_build:
         clone_args.append(project['repo_url'])
         clone_args.append(project['subdomain'])
     run_agent_command(ssh_client, "clone", clone_args)
 
-    subdomains = [p['subdomain'] for p in projects_to_build]
-    run_agent_command(ssh_client, "rebuild", [domain]+subdomains)
+    projects_json = {
+            "domain": domain,
+            "subdomains": [
+                {
+                    "subdomain": project['subdomain'],
+                    "extra_traefik_labels": project.get('extra_traefik_labels', [])
+                } for project in projects_to_build
+            ]
+        }
+
+    run_agent_command(ssh_client, "rebuild", projects_json)
     
 def destroy_projects(ssh_client, projects_to_destroy):
     run_agent_command(ssh_client, "remove", projects_to_destroy)

@@ -1,0 +1,20 @@
+version: '3.7'
+
+services:
+  traefik:
+    image: traefik:v2.11.0
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./traefik.yml:/etc/traefik/traefik.yml"
+      - "./acme:/acme"
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true

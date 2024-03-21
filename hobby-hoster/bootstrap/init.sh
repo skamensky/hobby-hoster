@@ -3,6 +3,8 @@
 set -e
 set -x
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 
 # Update and install necessary packages
 apt-get update
@@ -54,16 +56,66 @@ EOF
 systemctl restart docker
 
 
-# Setup Traefik directories and files (assuming Traefik setup follows)
-mkdir -p /mnt/data/traefik
-# Make sure to adapt the path in your Traefik Docker commands or configurations to use /mnt/data/traefik for configurations and certificates
+# Check if docker network "traefik-public" exists, if not, create it
+if ! docker network ls | grep -q "traefik-public"; then
+  echo "Creating docker network 'traefik-public'"
+  docker network create traefik-public
+else
+  echo "Docker network 'traefik-public' already exists"
+fi
+
+
+
+mkdir -p /mnt/data/traefik/
+cp -rf $SCRIPT_DIR/traefik/* /mnt/data/traefik/
+
+mkdir -p /mnt/data/traefik/letsencrypt
+touch /mnt/data/traefik/letsencrypt/acme.json
+chmod 600 /mnt/data/traefik/letsencrypt/acme.json
+
+
+# Check if traefik service exists
+TRAFFIK_SERVICE_PATH="/etc/systemd/system/traefik.service"
+if [ -f "$TRAFFIK_SERVICE_PATH" ]; then
+  echo "Traefik service exists. Stopping and removing it."
+  systemctl stop traefik.service
+  systemctl disable traefik.service
+  rm "$TRAFFIK_SERVICE_PATH"
+  systemctl daemon-reload
+else
+  echo "Traefik service does not exist, no need to stop or remove."
+fi
+
+
+DOCKER_PATH=$(which docker)
+# Create a new traefik service
+cat > $TRAFFIK_SERVICE_PATH <<EOF
+[Unit]
+Description=Traefik Docker Compose Service
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/data/traefik
+ExecStart=$DOCKER_PATH compose up
+ExecStop=$DOCKER_PATH compose down
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd, enable and start traefik service
+systemctl daemon-reload
+systemctl enable traefik.service
+systemctl start traefik.service
+
+
+
 
 mkdir -p /mnt/data/projects
 chown -R ubuntu:ubuntu /mnt/data
 chown -R ubuntu:ubuntu /mnt/data/*
 usermod -aG docker ubuntu
-
-# start traefik
-
-# TODO
 
