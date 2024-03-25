@@ -29,6 +29,8 @@
         python3Packages.boto3
         python3Packages.click
         python3Packages.paramiko
+        python3Packages.python-dotenv
+        python3Packages.passlib
         go
         nmap # for debugging
       ];

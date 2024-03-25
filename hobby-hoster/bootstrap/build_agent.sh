@@ -13,6 +13,7 @@ set -x
 
 
   GO_INSTALL_DIR="/mnt/data/bin/go"
+  PATH=$PATH:$GO_INSTALL_DIR/bin
 
   if ! go version &> /dev/null; then
     echo "Go is not installed. Installing Go $GO_VERSION."

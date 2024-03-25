@@ -1,0 +1,6 @@
+my recipes: https://docs.mealie.io/
+media display: tv,music,books
+try a minimal crm in https://github.com/dashpresshq/dashpress
+my bookmarks: https://github.com/awesome-selfhosted/awesome-selfhosted?tab=readme-ov-file#bookmarks-and-link-sharing
+central place to track rss feeds: https://github.com/awesome-selfhosted/awesome-selfhosted?tab=readme-ov-file#feed-readers
+(private) file transfer: https://github.com/awesome-selfhosted/awesome-selfhosted?tab=readme-ov-file#file-transfer--synchronization

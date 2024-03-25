@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import os
 import subprocess
@@ -5,6 +6,7 @@ import paramiko
 from io import StringIO
 from pathlib import Path
 from typing import Union
+import sys
 
 ROOT_DIR = Path(__file__).parent.parent
 
@@ -90,8 +92,24 @@ def run_scripts_and_terragrunt_apply():
 
 def main():
 
-    # deploy latest changes and add current machine to the list of allowed machines
-    run_scripts_and_terragrunt_apply()
+
+    supported_args = [
+        "--no-tf",
+        "--force-rebuild"
+    ]
+    # Check if there are any arguments passed that are not --tf
+    if any(arg not in supported_args for arg in sys.argv[1:]):
+        supported_args_formatted = [f"[{arg}]" for arg in supported_args]
+        print(f"USAGE: deploy.py {' '.join(supported_args_formatted)}")
+        sys.exit(1)
+
+    no_tf = '--no-tf' in sys.argv
+    force_rebuild = '--force-rebuild' in sys.argv
+
+    if not no_tf:
+        run_scripts_and_terragrunt_apply()
+    else:
+        print("Skipping terragrunt apply as instructed via --no-tf")
 
     with open('config.json') as f:
         config = json.load(f)
@@ -143,18 +161,24 @@ def main():
             elif service['last_commit'] != remote_services[service['subdomain']]['last_commit']:
                 services_to_update.append(service)
 
-        services_to_build = new_services + services_to_update
+        if force_rebuild:
+            services_to_build = list(local_services.values())
+        else:
+            services_to_build = new_services + services_to_update
+            
 
         for service in remote_services:
             if service not in local_services:
                 services_to_destroy.append(service)
 
-
-        print(f"Building new services {new_services}, services to update {services_to_update}")
+        if force_rebuild:
+            print("Forcing rebuild of all services")
+        else:
+            print(f"New services to build: {new_services}, services to update {services_to_update}")
         if services_to_build:
             rebuild_projects(ssh_client, services_to_build,domain)
 
-        print(f"Destroying {services_to_destroy}")
+        print(f"Services to destroy: {services_to_destroy}")
         if services_to_destroy:
             destroy_projects(ssh_client, services_to_destroy)
 
@@ -165,4 +189,5 @@ def main():
 
 
 if __name__ == "__main__":
+    
     main()

@@ -238,8 +238,10 @@ func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
 	}
 
 	if hobbyHosterEnabledCount == 0 {
-		fmt.Println("No services with 'hobby-hoster.enable=true' found in docker-compose.yml")
-		return nil
+		return errors.New("No services with 'hobby-hoster.enable=true' found in docker-compose.yml")
+	}
+	if hobbyHosterEnabledCount > 1 {
+		return errors.New("Multiple services with 'hobby-hoster.enable=true' found in docker-compose.yml")
 	} else if hobbyHosterEnabledCount > 1 {
 		return errors.New("multiple services with 'hobby-hoster.enable=true' found in docker-compose.yml")
 	}
@@ -482,7 +484,8 @@ func rebuildService(domain string, subdomain string, extraTraefikLabels []string
 		"traefik.enable=true",
 		fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", subdomain, subdomain, domain),
 		fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", subdomain),
-		fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=httpsResolver", subdomain),
+		fmt.Sprintf("traefik.http.routers.%s.tls=true", subdomain),
+		fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=le", subdomain),
 		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=80", subdomain),
 	}
 
@@ -495,7 +498,7 @@ func rebuildService(domain string, subdomain string, extraTraefikLabels []string
 	if err != nil {
 		return err
 	}
-	cmdUp := NewCmdWrap(fullProjectDir, "docker", "compose", "up", "-d")
+	cmdUp := NewCmdWrap(fullProjectDir, "docker", "compose", "up", "--detach")
 	cmdUp.Run()
 	if cmdUp.Error() != nil {
 		return errors.New(fmt.Sprintf("Failed to run docker compose up: %v", cmdUp.Error()))
@@ -514,6 +517,11 @@ func removeService(subdomain string) error {
 	err := cmdDown.Run()
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to run docker compose down: %v", err))
+	}
+
+	err = os.RemoveAll(fullProjectDir)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to remove directory %s: %v", fullProjectDir, err))
 	}
 
 	return nil

@@ -68,6 +68,36 @@ resource "null_resource" "init_script_exec" {
 }
 
 
+resource "null_resource" "env_file_update" {
+  # This resource triggers when there's a change in the .env file
+  triggers = {
+    env_file_hash = filesha256("${local.project_root}/.env")
+  }
+
+  # Define connection details
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(local.ssh_private_key_path)
+    host        = aws_instance.ec2_instance.public_ip
+  }
+
+  # Copy the .env file to the specified location on the EC2 instance
+  provisioner "file" {
+    source      = "${local.project_root}/.env"
+    destination = "/mnt/data/.env"
+  }
+
+  # Explicitly depend on the EC2 instance being up
+  depends_on = [
+    aws_instance.ec2_instance,
+  ]
+}
+
+
+
+
+
 resource "null_resource" "build_agent" {
   # This section is responsible for setting up the build agent on the EC2 instance.
   # It triggers the build agent setup when there are changes detected in the bootstrap or the agent folder's content.

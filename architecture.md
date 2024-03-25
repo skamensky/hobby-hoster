@@ -93,7 +93,25 @@ For more information on nix, see the nix flake documentation. I use `nix develop
 
 ### Secrets
 
-Terraform will read the .env file for secrets
+Terraform will read the .env file for secrets related to infrastructure.
+
+Secrets for docker compose projects are also kept in the .env file. The .env file will be read by the hobby-hoster agent, separated by prefix, and added to a .env file in the respective project directory.
+
+For example:
+
+```.env
+hello-world_secret=hello
+HELLO-WORLD_SECRET2=there
+```
+
+In the root of this project, will be translated to a .env file in the root of the project directory as follows:
+```dotenv
+SECRET=hello
+SECRET2=there
+```
+
+
+
 
 ### Manual steps
 

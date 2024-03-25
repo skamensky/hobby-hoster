@@ -17,9 +17,9 @@ certificatesResolvers:
   httpsResolver:
     acme:
       email: shmuelkamensky@gmail.com
+      storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web
-
 providers:
   docker:
     watch: true

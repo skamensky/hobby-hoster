@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+
+from dotenv import load_dotenv
+import os
+from passlib.apache import HtpasswdFile
 from pathlib import Path
 import json
 from textwrap import dedent
@@ -38,9 +42,9 @@ def generate_traefik_yml():
       httpsResolver:
         acme:
           email: {config['email']}
+          storage: /letsencrypt/acme.json
           httpChallenge:
             entryPoint: web
-
     providers:
       docker:
         watch: true
@@ -55,6 +59,96 @@ def generate_traefik_yml():
     with open(traefik_yml_path, 'w') as traefik_yml:
         traefik_yml.write(template)
         print(f"Traefik configuration has been generated at {nice_path_name(traefik_yml_path)}")
+
+def generate_traefik_compose_yml():
+    domain = config['domain_name']
+
+    # Read BASIC_AUTH_PASSWORD from .env file
+    basic_auth_user = os.getenv('TRAEFIK_BASIC_AUTH_USERNAME')
+    if not basic_auth_user:
+        raise ValueError("TRAEFIK_BASIC_AUTH_USERNAME not found in .env file.")
+    
+    basic_auth_password=os.getenv('TRAEFIK_BASIC_AUTH_PASSWORD')
+    if not basic_auth_password:
+        raise ValueError("TRAEFIK_BASIC_AUTH_PASSWORD not found in .env file.")
+  
+
+    # Create a new HtpasswdFile instance in memory (no file argument means it won't be read from or written to disk)
+    ht = HtpasswdFile()
+
+    ht.set_password(basic_auth_user, basic_auth_password)
+
+    # Get the hashed password line for the user, which includes the username
+    hashed_password_line = ht.to_string().decode().strip()
+
+    template = dedent(f'''
+                      
+    # This file is auto-generated. Do not manually edit this file.
+    # To change the configuration, please modify the `config.json` file and rerun the `./scripts/gen_config.py`
+    
+    # The reason we need to generate this file, is because it uses domain name and hashed password.
+                      
+    version: '3.7'
+
+    services:
+      traefik:
+        image: traefik:v2.11.0
+        command:
+          - "--api.dashboard=true"
+          - "--accesslog"
+          - "--log"
+          - --entrypoints.web.address=:80
+          - --entrypoints.websecure.address=:443
+          - --providers.docker
+          - --providers.docker.exposedByDefault=false
+          - --api
+          - --certificatesresolvers.le.acme.email={config['email']}
+          - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+          - --certificatesresolvers.le.acme.tlschallenge=true
+        ports:
+          - "80:80"
+          - "443:443"
+        volumes:
+          - "/var/run/docker.sock:/var/run/docker.sock"
+          - "traefik-certificates:/certificates"
+        networks:
+          - traefik-public
+        labels:
+          - "traefik.enable=true"
+          - "traefik.http.routers.traefik.rule=Host(`traefik.{domain}`)"
+          - "traefik.http.routers.traefik.service=api@internal"
+          - "traefik.http.routers.traefik.tls.certresolver=le"
+          - "traefik.http.routers.traefik.entrypoints=websecure"
+          - "traefik.http.routers.traefik.middlewares=auth"
+          - "traefik.http.routers.http-catchall.entrypoints=web"
+          # Add basic auth middleware for security, ignore differences to this line when generating since it will always change
+          # IGNORE_DIFF_START
+          - "traefik.http.middlewares.auth.basicauth.users=user:{hashed_password_line}"
+          # IGNORE_DIFF_END
+
+    volumes:
+      traefik-certificates:
+        external: true
+
+    networks:
+      traefik-public:
+        external: true 
+    ''').strip()
+    traefik_compose_yml_path = root_dir /'hobby-hoster' / 'bootstrap' / 'traefik' / 'docker-compose.yml'
+
+
+
+    old_file_parts = traefik_compose_yml_path.read_text().split("# IGNORE_DIFF_START")
+    old_file = old_file_parts[0] + old_file_parts[1].split("# IGNORE_DIFF_END")[1] if len(old_file_parts) > 1 else old_file_parts[0]
+
+    new_file_parts = template.split("# IGNORE_DIFF_START")
+    new_file = new_file_parts[0] + new_file_parts[1].split("# IGNORE_DIFF_END")[1] if len(new_file_parts) > 1 else new_file_parts[0]
+
+    if old_file == new_file:
+        print(f"Traefik docker-compose configuration is already up to date at {nice_path_name(traefik_compose_yml_path)}")
+    else:
+        traefik_compose_yml_path.write_text(template)
+        print(f"Traefik docker-compose configuration has been generated at {nice_path_name(traefik_compose_yml_path)}")
 
 def validate_config():
     subdomains = [project['subdomain'] for project in config['projects']]
@@ -165,11 +259,12 @@ def generate_region_terragrunt():
         return
 
 def main():
+    load_dotenv(root_dir / '.env')
     validate_config()
     generate_main_tf()
     generate_region_terragrunt()
     generate_traefik_yml()
-
+    generate_traefik_compose_yml()
 
 if __name__=="__main__":
     main()

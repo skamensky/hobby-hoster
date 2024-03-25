@@ -5,8 +5,8 @@
       "subdomain": "hello-world"
     },
     {
-      "repo": "https://github.com/skamensky/sample-hobby-hosted-project",
-      "subdomain": "hello-world-2"
+      "repo": "https://github.com/skamensky/hobby-hoster-links",
+      "subdomain": "links"
     }
   ],
   "regions": [

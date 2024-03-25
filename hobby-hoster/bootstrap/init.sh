@@ -8,7 +8,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Update and install necessary packages
 apt-get update
-apt-get install -y apt-transport-https ca-certificates curl software-properties-common nvme-cli
+apt-get install -y apt-transport-https ca-certificates curl software-properties-common jq
 # Install Docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
 add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
@@ -66,13 +66,17 @@ fi
 
 
 
+rm -rf /mnt/data/traefik/
 mkdir -p /mnt/data/traefik/
 cp -rf $SCRIPT_DIR/traefik/* /mnt/data/traefik/
-
-mkdir -p /mnt/data/traefik/letsencrypt
-touch /mnt/data/traefik/letsencrypt/acme.json
-chmod 600 /mnt/data/traefik/letsencrypt/acme.json
-
+VOLUME_NAME="traefik-certificates"
+# Check if Docker volume exists
+if ! docker volume ls | grep -q "$VOLUME_NAME"; then
+  echo "Creating Docker volume '$VOLUME_NAME' for Traefik certificates"
+  docker volume create "$VOLUME_NAME"
+else
+  echo "Docker volume '$VOLUME_NAME' for Traefik certificates already exists"
+fi
 
 # Check if traefik service exists
 TRAFFIK_SERVICE_PATH="/etc/systemd/system/traefik.service"
@@ -98,7 +102,7 @@ After=docker.service
 [Service]
 Type=simple
 WorkingDirectory=/mnt/data/traefik
-ExecStart=$DOCKER_PATH compose up
+ExecStart=$DOCKER_PATH compose --env-file /mnt/data/.env up 
 ExecStop=$DOCKER_PATH compose down
 Restart=always
 
@@ -110,8 +114,6 @@ EOF
 systemctl daemon-reload
 systemctl enable traefik.service
 systemctl start traefik.service
-
-
 
 
 mkdir -p /mnt/data/projects

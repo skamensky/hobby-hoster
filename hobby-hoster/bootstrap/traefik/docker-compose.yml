@@ -1,19 +1,49 @@
+# This file is auto-generated. Do not manually edit this file.
+# To change the configuration, please modify the `config.json` file and rerun the `./scripts/gen_config.py`
+
+# The reason we need to generate this file, is because it uses domain name and hashed password.
+
 version: '3.7'
 
 services:
   traefik:
     image: traefik:v2.11.0
     command:
-      - "--configFile=/etc/traefik/traefik.yml"
+      - "--api.dashboard=true"
+      - "--accesslog"
+      - "--log"
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.docker
+      - --providers.docker.exposedByDefault=false
+      - --api
+      - --certificatesresolvers.le.acme.email=shmuelkamensky@gmail.com
+      - --certificatesresolvers.le.acme.storage=/certificates/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./traefik.yml:/etc/traefik/traefik.yml"
-      - "./acme:/acme"
+      - "traefik-certificates:/certificates"
     networks:
       - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.kelev.dev`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.tls.certresolver=le"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      # Add basic auth middleware for security, ignore differences to this line when generating since it will always change
+      # IGNORE_DIFF_START
+      - "traefik.http.middlewares.auth.basicauth.users=user:admin:$apr1$P78Ef.58$BA/1jFo2CFQdBKdIpeSP7."
+      # IGNORE_DIFF_END
+
+volumes:
+  traefik-certificates:
+    external: true
 
 networks:
   traefik-public:
