@@ -110,6 +110,11 @@ SECRET=hello
 SECRET2=there
 ```
 
+### Multi region
+The infrastructure setup for deploying projects across multiple regions is automated through a script (`gen_config.py`) that reads configurations from a `config.json` file. This script dynamically generates Terraform configurations (`main.tf`) tailored to each specified AWS region. It ensures that the infrastructure can be deployed in a region-agnostic manner, allowing for scalability and flexibility in deployment locations. Additionally, the script generates Terragrunt configuration files (`terragrunt.hcl`) for each region, facilitating the management of Terraform state files and modularizing deployments across different environments. This approach streamlines the process of setting up infrastructure across multiple regions, making it efficient and manageable.
+
+In the future, the plan is to implement geographic load balancing to optimize the routing of traffic based on the user's location. However, this feature is currently on hold due to domain transfer restrictions with Cloudflare, as detailed in the `dns.tf` file. Once these restrictions are lifted, the necessary Terraform configurations for geo-routing will be activated to enhance the deployment strategy further.
+
 
 
 
@@ -166,14 +171,17 @@ terragrunt apply
 
 The `deploy.py` script automates the deployment process for projects defined in the `config.json` file. It performs several key functions:
 
-1. **SSH Connection Setup**: Establishes an SSH connection to EC2 instances in specified regions using credentials from `config.json` or environment variables.
+1. **SSH Connection Setup**: Establishes an SSH connection to EC2 instances in specified regions using credentials from `config.json` or environment variables. It utilizes the `paramiko` library to handle SSH connections securely.
 
-2. **Service Synchronization**: Compares the current services deployed on the EC2 instance with the services defined in `config.json`. It identifies new services to deploy, existing services to update based on the latest commit, and services to remove.
+2. **Service Synchronization**: Compares the current services deployed on the EC2 instance with the services defined in `config.json`. It identifies new services to deploy, existing services to update based on the latest commit, and services to remove. This process involves fetching the latest commit hash for each project repository and comparing it with the deployed version.
 
-3. **Project Deployment**: For new or updated services, it instructs the remote agent to clone the project repositories and rebuild the services. For services that are no longer needed, it commands the agent to remove them.
+3. **Project Deployment**: For new or updated services, it instructs the remote agent to clone the project repositories and rebuild the services. For services that are no longer needed, it commands the agent to remove them. This is achieved by sending commands to the remote agent over SSH to perform actions like cloning repositories, rebuilding projects, and removing outdated services.
 
-4. **Infrastructure Updates**: Runs necessary scripts (`allow_current_machine_ssh.sh` and `gen_config.py`) to update the SSH access list and regenerate configuration files. It then applies Terraform configurations non-interactively across all specified regions to update the infrastructure accordingly.
+4. **Infrastructure Updates**: Runs necessary scripts (`allow_current_machine_ssh.sh` and `gen_config.py`) to update the SSH access list and regenerate configuration files. It then applies Terraform configurations non-interactively across all specified regions to update the infrastructure accordingly. This ensures that the infrastructure is always in sync with the configuration defined in `config.json`.
 
+5. **Support for Command-line Arguments**: The script supports command-line arguments such as `--no-tf` to skip Terraform updates and `--force-rebuild` to force the rebuilding of all services, providing flexibility in deployment scenarios.
+
+6. **Error Handling and Logging**: Implements error handling and logging throughout the deployment process to ensure that any issues are promptly identified and addressed. This includes checking for the existence of necessary files, handling SSH connection errors, and verifying the success of remote commands.
 
 ## Docker Compose Labels
 
