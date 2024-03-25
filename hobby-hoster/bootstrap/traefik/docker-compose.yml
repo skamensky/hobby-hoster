@@ -35,10 +35,9 @@ services:
       - "traefik.http.routers.traefik.tls.certresolver=le"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.middlewares=auth"
-      - "traefik.http.routers.http-catchall.entrypoints=web"
       # Add basic auth middleware for security, ignore differences to this line when generating since it will always change
       # IGNORE_DIFF_START
-      - "traefik.http.middlewares.auth.basicauth.users=user:admin:$apr1$P78Ef.58$BA/1jFo2CFQdBKdIpeSP7."
+      - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$RnFu3A2i$$quXfecuCwLo4tlobGLOg81"
       # IGNORE_DIFF_END
 
 volumes:

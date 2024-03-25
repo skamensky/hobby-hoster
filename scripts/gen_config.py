@@ -71,7 +71,7 @@ def generate_traefik_compose_yml():
     basic_auth_password=os.getenv('TRAEFIK_BASIC_AUTH_PASSWORD')
     if not basic_auth_password:
         raise ValueError("TRAEFIK_BASIC_AUTH_PASSWORD not found in .env file.")
-  
+
 
     # Create a new HtpasswdFile instance in memory (no file argument means it won't be read from or written to disk)
     ht = HtpasswdFile()
@@ -81,6 +81,7 @@ def generate_traefik_compose_yml():
     # Get the hashed password line for the user, which includes the username
     hashed_password_line = ht.to_string().decode().strip()
 
+    escaped_for_yaml = hashed_password_line.replace('$','$$')
     template = dedent(f'''
                       
     # This file is auto-generated. Do not manually edit this file.
@@ -120,10 +121,9 @@ def generate_traefik_compose_yml():
           - "traefik.http.routers.traefik.tls.certresolver=le"
           - "traefik.http.routers.traefik.entrypoints=websecure"
           - "traefik.http.routers.traefik.middlewares=auth"
-          - "traefik.http.routers.http-catchall.entrypoints=web"
           # Add basic auth middleware for security, ignore differences to this line when generating since it will always change
           # IGNORE_DIFF_START
-          - "traefik.http.middlewares.auth.basicauth.users=user:{hashed_password_line}"
+          - "traefik.http.middlewares.auth.basicauth.users={escaped_for_yaml}"
           # IGNORE_DIFF_END
 
     volumes:
