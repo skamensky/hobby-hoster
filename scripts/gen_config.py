@@ -123,6 +123,7 @@ def generate_traefik_compose_yml():
           - "traefik.http.routers.traefik.middlewares=auth"
           # Add basic auth middleware for security, ignore differences to this line when generating since it will always change
           # IGNORE_DIFF_START
+          # All services will use this same basic auth middleware. For us to pick up on it they need to add hobby-hoster.private=true to their labels
           - "traefik.http.middlewares.auth.basicauth.users={escaped_for_yaml}"
           # IGNORE_DIFF_END
 
@@ -258,6 +259,27 @@ def generate_region_terragrunt():
         print(f"No changes need to be made to regions directory")
         return
 
+def generate_readme_subdomains():
+    subdomains = config.get('projects', [])
+    subdomain_content = "\n\n".join([f"- **{project['subdomain']}**: Located at [{project['subdomain']}.{config['domain_name']}](https://{project['subdomain']}.{config['domain_name']}). Hosted at {project['repo']}. {project['description']}" for project in subdomains])
+
+    readme_path = root_dir / 'README.md'
+    with open(readme_path, 'r+') as readme_file:
+        content = readme_file.read()
+        start_tag = "<!--INJECT_SUBDOMAINS_START-->"
+        end_tag = "<!--INJECT_SUBDOMAINS_END-->"
+        start = content.find(start_tag) + len(start_tag)
+        end = content.find(end_tag)
+        new_content = content[:start] + "\n" + subdomain_content + "\n" + content[end:]
+
+        if new_content == content:
+            print(f"README.md is already up to date at {nice_path_name(readme_path)}")
+            return
+        else:
+          readme_file.seek(0)
+          readme_file.write(new_content)
+          readme_file.truncate()
+          print(f"README.md has been updated successfully at {nice_path_name(readme_path)}")
 def main():
     load_dotenv(root_dir / '.env')
     validate_config()
@@ -265,6 +287,7 @@ def main():
     generate_region_terragrunt()
     generate_traefik_yml()
     generate_traefik_compose_yml()
+    generate_readme_subdomains()
 
 if __name__=="__main__":
     main()

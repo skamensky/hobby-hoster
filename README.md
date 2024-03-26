@@ -202,8 +202,25 @@ The following labels are injected to the docker-compose.yml file for each servic
 
 It's not supported to have multiple services with hobby-hoster.enable=true in the same docker-compose file. This is because the hobby-hoster agent will forward all subdomains to the one service. 
 
-Additionally, a service with hobby-hoster.enable=true must expose port 80. This is not currently validated, but will result in errors during deployment.
+Additionally, a service with `hobby-hoster.enable=true` must either expose port 80, or specify the server the port will run on via the `hobby-hoster.port` label, e.g. `hobby-hoster.port=8080`. Port resolution is not currently validated, but will result in errors during deployment if not found.
 
-Additionally, any ports mapping to the host port are modified to a randomly allocated port, so as not to conflict with other services.
+Any ports mapping to the host port are modified to a randomly allocated port, so as not to conflict with other services.
 
-Lastly the network "traefik-public" is added to the docker-compose file. This is the network that traefik will use to route traffic to the service. If you already have a custom network, this is unsupported.
+Adding `hobby-hoster.private=true` as a label will add the "auth" middleware to the traefik router. This will require a username and password to access the service. The username and password are defined in the `.env` file at the root of this project via the `TRAEFIK_BASIC_AUTH_USERNAME` and `TRAEFIK_BASIC_AUTH_PASSWORD` variables.
+
+Lastly the network "traefik-public" is added to the docker-compose file. This is the network that traefik will use to route traffic to the service. If you already have a custom network, things will likely fail as this is unsupported.
+
+
+# All subdomains:
+- **traefik**: Located at [traefik.kelev.dev](https://traefik.kelev.dev). This is part of this repo and points to the internal traefik dashboard. Private and inaccessable to the public.
+
+## Subdomains taken from config.json
+
+<!-- Below is automatically added in ./scripts/gen_config.py -->
+<!--INJECT_SUBDOMAINS_START-->
+- **hello-world**: Located at [hello-world.kelev.dev](https://hello-world.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-hello-world. A simple hello world project to test the hobby-hoster infrastructure.
+
+- **links**: Located at [links.kelev.dev](https://links.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-links. My links, similar to linktree
+
+- **monitoring**: Located at [monitoring.kelev.dev](https://monitoring.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-monitoring. Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public.
+<!--INJECT_SUBDOMAINS_END-->

@@ -1,12 +1,19 @@
 {
   "projects": [
     {
-      "repo": "https://github.com/skamensky/sample-hobby-hosted-project",
-      "subdomain": "hello-world"
+      "repo": "https://github.com/skamensky/hobby-hoster-hello-world",
+      "subdomain": "hello-world",
+      "description": "A simple hello world project to test the hobby-hoster infrastructure."
     },
     {
       "repo": "https://github.com/skamensky/hobby-hoster-links",
-      "subdomain": "links"
+      "subdomain": "links",
+      "description":"My links, similar to linktree"
+    },
+    {
+      "repo":"https://github.com/skamensky/hobby-hoster-monitoring",
+      "subdomain":"monitoring",
+      "description":"Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public."
     }
   ],
   "regions": [
