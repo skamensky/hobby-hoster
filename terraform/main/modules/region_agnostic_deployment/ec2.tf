@@ -104,6 +104,7 @@ resource "null_resource" "build_agent" {
   triggers = {
     bootstrap_triggers = null_resource.init_script_exec.id
     agent_folder_hash    = join("", [for f in fileset("${local.project_root}/hobby-hoster/agent", "**/*") : filesha256("${local.project_root}/hobby-hoster/agent/${f}")])
+    build_agent_sh_hash = filesha256("${local.project_root}/hobby-hoster/bootstrap/build_agent.sh")
   }
 
   # Define connection details
