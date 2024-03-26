@@ -4,6 +4,8 @@ import sys
 import json
 import subprocess
 import os
+import shutil
+
 from pathlib import Path
 
 BASE_PATH = Path(__file__).resolve().parent.parent
@@ -58,8 +60,16 @@ def ip_in_cache(region):
 def ip_from_cache(region):
     return ip_in_cache(region)
 
+
+def verify_terragrunt():
+    if not shutil.which("terragrunt"):
+        print("Terragrunt is not installed or not found in PATH.")
+        print("Recommend running 'nix develop' to set up the environment correctly.")
+        sys.exit(1)
+
 def main():
     verify_region()
+    verify_terragrunt()
 
     if NO_CACHE == "--no-cache":
         print("Skipping cache...")
@@ -77,7 +87,9 @@ def main():
     else:
         update_cache(ip_address,REGION)
         print(f"Connecting to server at {ip_address}...")
-        subprocess.run(["ssh", f"ubuntu@{ip_address}"])
+        args = ["ssh", "-i", os.path.expanduser(config['ssh']['private_key_path']), f"ubuntu@{ip_address}"]
+        print(" ".join(args))
+        subprocess.run(args)
 
 
 if __name__ == "__main__":

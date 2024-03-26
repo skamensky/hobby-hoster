@@ -137,6 +137,9 @@ def main():
             raise Exception(f"Error getting public IP: {stderr.decode()}")
         public_ip = stdout.decode().strip()
 
+        if not public_ip:
+            raise Exception(f"Public IP not found for region {region}")
+
         ssh_client.connect(
             hostname=public_ip,
             username=config['ssh']['user'],
