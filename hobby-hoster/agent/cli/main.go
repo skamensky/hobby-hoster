@@ -264,8 +264,8 @@ func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
 	// Reordering the map to have 'version', 'services', 'networks' in order
 	orderedData := yaml.MapSlice{}
 
-	// Extracting 'version', 'services', 'networks' in the specified order
-	for _, key := range []string{"version", "services", "networks"} {
+	// Extracting 'version', 'services', 'networks',"volumes" in the specified order
+	for _, key := range []string{"version", "services", "networks", "volumes", "configs", "secrets"} {
 		if value, ok := data[key]; ok {
 			orderedData = append(orderedData, yaml.MapItem{Key: key, Value: value})
 		}
@@ -457,6 +457,55 @@ var listServicesCmd = &cobra.Command{
 	},
 }
 
+func getHobbyHosterMetadataFromDockerFile(dockerComposeFilePath string) (map[string]string, error) {
+	data, err := os.ReadFile(dockerComposeFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var dockerCompose map[string]interface{}
+	err = yaml.Unmarshal(data, &dockerCompose)
+	if err != nil {
+		return nil, err
+	}
+
+	hobbyHosterMetadata := make(map[string]string)
+
+	services, ok := dockerCompose["services"].(map[interface{}]interface{})
+	if !ok {
+		return nil, errors.New("invalid docker-compose file format: missing 'services'")
+	}
+
+	for _, service := range services {
+		serviceMap, ok := service.(map[interface{}]interface{})
+		if !ok {
+			continue // Not a valid service definition, skip
+		}
+
+		labels, ok := serviceMap["labels"].([]interface{})
+		if !ok {
+			continue // No labels defined, skip
+		}
+
+		for _, label := range labels {
+			labelStr, ok := label.(string)
+			if !ok {
+				continue // Not a valid label, skip
+			}
+
+			if strings.HasPrefix(labelStr, "hobby-hoster.") {
+				keyValue := strings.SplitN(labelStr, "=", 2)
+				if len(keyValue) == 2 {
+					key := strings.TrimPrefix(keyValue[0], "hobby-hoster.")
+					hobbyHosterMetadata[key] = keyValue[1]
+				}
+			}
+		}
+	}
+
+	return hobbyHosterMetadata, nil
+}
+
 func rebuildService(domain string, subdomain string, extraTraefikLabels []string) error {
 	fullProjectDir := getProjectPath(subdomain)
 
@@ -480,17 +529,39 @@ func rebuildService(domain string, subdomain string, extraTraefikLabels []string
 		return fmt.Errorf("Failed to run docker compose build: %v", cmdBuild.Error())
 	}
 
+	hobbyHosterMetadata, err := getHobbyHosterMetadataFromDockerFile(fullProjectDir + "/docker-compose.yml")
+	if err != nil {
+		return err
+	}
+
+	port := "80" // Default port
+	if val, ok := hobbyHosterMetadata["port"]; ok {
+		port = val
+	}
+
+	private := false
+	if val, ok := hobbyHosterMetadata["private"]; ok {
+		private, err = strconv.ParseBool(val)
+		if err != nil {
+			return err
+		}
+	}
+
 	baseTraefikLabels := []string{
 		"traefik.enable=true",
 		fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", subdomain, subdomain, domain),
 		fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", subdomain),
 		fmt.Sprintf("traefik.http.routers.%s.tls=true", subdomain),
 		fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=le", subdomain),
-		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=80", subdomain),
+		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=%s", subdomain, port),
+	}
+
+	if private {
+		baseTraefikLabels = append(baseTraefikLabels, fmt.Sprintf("traefik.http.routers.%s.middlewares=auth", subdomain))
 	}
 
 	allLabels := append(baseTraefikLabels, extraTraefikLabels...)
-	err := alterDockerComposeFile(allLabels, fullProjectDir)
+	err = alterDockerComposeFile(allLabels, fullProjectDir)
 	if err != nil {
 		return err
 	}
