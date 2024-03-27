@@ -1,3 +1,22 @@
+
+# All subdomains:
+- **traefik**: Located at [traefik.kelev.dev](https://traefik.kelev.dev). This is part of this repo and points to the internal traefik dashboard. Private and inaccessable to the public.
+
+## Subdomains taken from config.json
+
+<!-- Below is automatically added in ./scripts/gen_config.py -->
+<!--INJECT_SUBDOMAINS_START-->
+- **hello-world**: Located at [hello-world.kelev.dev](https://hello-world.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-hello-world. A simple hello world project to test the hobby-hoster infrastructure.
+
+- **links**: Located at [links.kelev.dev](https://links.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-links. My links, similar to linktree
+
+- **monitoring**: Located at [monitoring.kelev.dev](https://monitoring.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-monitoring. Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public.
+
+- **dash**: Located at [dash.kelev.dev](https://dash.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-dash. A frontend to postgres. Here just because I wanted to check it out. Username is `admin`, password is `admin`.
+<!--INJECT_SUBDOMAINS_END-->
+
+
+
 # Project Architecture Overview
 
 This document outlines the architecture for hosting multiple web-based hobby projects on a single AWS EC2 instance, leveraging Terraform for infrastructure as code, Docker for containerization, and Traefik for reverse proxy and TLS management. The setup ensures that each project is self-contained, easily manageable, and secure, with the flexibility to add, remove, and edit projects as needed.
@@ -210,19 +229,3 @@ Adding `hobby-hoster.private=true` as a label will add the "auth" middleware to 
 
 Lastly the network "traefik-public" is added to the docker-compose file. This is the network that traefik will use to route traffic to the service. If you already have a custom network, things will likely fail as this is unsupported.
 
-
-# All subdomains:
-- **traefik**: Located at [traefik.kelev.dev](https://traefik.kelev.dev). This is part of this repo and points to the internal traefik dashboard. Private and inaccessable to the public.
-
-## Subdomains taken from config.json
-
-<!-- Below is automatically added in ./scripts/gen_config.py -->
-<!--INJECT_SUBDOMAINS_START-->
-- **hello-world**: Located at [hello-world.kelev.dev](https://hello-world.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-hello-world. A simple hello world project to test the hobby-hoster infrastructure.
-
-- **links**: Located at [links.kelev.dev](https://links.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-links. My links, similar to linktree
-
-- **monitoring**: Located at [monitoring.kelev.dev](https://monitoring.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-monitoring. Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public.
-
-- **dash**: Located at [dash.kelev.dev](https://dash.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-dash. A frontend to postgres. Here just because I wanted to check it out. Username is `admin`, password is `admin`.
-<!--INJECT_SUBDOMAINS_END-->
