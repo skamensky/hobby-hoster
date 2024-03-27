@@ -14,6 +14,11 @@
       "repo":"https://github.com/skamensky/hobby-hoster-monitoring",
       "subdomain":"monitoring",
       "description":"Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public."
+    },
+    {
+      "repo": "https://github.com/skamensky/hobby-hoster-dash",
+      "subdomain": "dash",
+      "description": "A frontend to postgres. Here just because I wanted to check it out. Username is `admin`, password is `admin`."
     }
   ],
   "regions": [
@@ -21,7 +26,7 @@
       "region": "eu-west-3",
       "ami": "ami-00c71bd4d220aa22a",
       "availability_zone": "eu-west-3a",
-      "instance_type": "t2.micro",
+      "instance_type": "t2.medium",
       "attached_volume_size": 100,
       "continents": [
         "EU",
