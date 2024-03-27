@@ -97,7 +97,7 @@ def main():
         "--no-tf",
         "--force-rebuild"
     ]
-    # Check if there are any arguments passed that are not --tf
+    # Check if there are any arguments passed that are not supported
     if any(arg not in supported_args for arg in sys.argv[1:]):
         supported_args_formatted = [f"[{arg}]" for arg in supported_args]
         print(f"USAGE: deploy.py {' '.join(supported_args_formatted)}")

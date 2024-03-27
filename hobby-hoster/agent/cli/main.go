@@ -171,6 +171,17 @@ func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
 			return errors.New("failed to assert service as map")
 		}
 
+		// we need to add the network to all services so they can communicate with each other
+		// TODO find another way instead of forcing all services across all docker compose projects to be on the same network
+		networks, ok := serviceMap["networks"].([]interface{})
+		if ok {
+			if len(networks) != 1 || networks[0] != "traefik-public" {
+				return errors.New("custom networks are not supported for services with 'hobby-hoster.enable=true'")
+			}
+		} else {
+			serviceMap["networks"] = []interface{}{"traefik-public"}
+		}
+
 		var labelsSlice []interface{}
 		existingLabels, exists := serviceMap["labels"]
 		if !exists {
@@ -225,16 +236,10 @@ func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
 		}
 		labelsSlice = uniqueLabels
 
-		serviceMap["labels"] = labelsSlice
-
-		networks, ok := serviceMap["networks"].([]interface{})
-		if ok {
-			if len(networks) != 1 || networks[0] != "traefik-public" {
-				return errors.New("custom networks are not supported for services with 'hobby-hoster.enable=true'")
-			}
-		} else {
-			serviceMap["networks"] = []interface{}{"traefik-public"}
+		if hobbyHosterEnabled {
+			serviceMap["labels"] = labelsSlice
 		}
+
 	}
 
 	if hobbyHosterEnabledCount == 0 {
@@ -275,10 +280,6 @@ func addTraefikToDockerCompose(labels []string, fullProjectDir string) error {
 	output, err := yaml.Marshal(&orderedData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated docker-compose.yml with ordered sections: %v", err)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated docker-compose.yml: %v", err)
 	}
 
 	if err := os.WriteFile(dockerComposeFilePath, output, 0644); err != nil {
@@ -353,7 +354,13 @@ func allocatePorts(fullProjectDir string) error {
 	services := dockerCompose["services"].(map[interface{}]interface{})
 	for serviceName, service := range services {
 		serviceMap := service.(map[interface{}]interface{})
-		ports := serviceMap["ports"].([]interface{})
+
+		var ports []interface{}
+		if serviceMap["ports"] != nil {
+			ports = serviceMap["ports"].([]interface{})
+		} else {
+			continue
+		}
 		for i, port := range ports {
 			switch p := port.(type) {
 			case int:

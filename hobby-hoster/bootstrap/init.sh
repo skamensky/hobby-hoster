@@ -15,8 +15,9 @@ add-apt-repository -y "deb [arch=amd64] https://download.docker.com/linux/ubuntu
 apt-get update
 apt-get install -y docker-ce docker-compose-plugin
 
-
-
+# these randomly consume a lot of CPU and are not needed
+systemctl disable snapd.service
+systemctl disable snapd.socket
 
 # hack to find correct device since AWS attaches it as a different name than specified in TF.
 # neither nvme nor the metadata api gave me the correct device name
