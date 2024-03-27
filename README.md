@@ -223,4 +223,6 @@ Lastly the network "traefik-public" is added to the docker-compose file. This is
 - **links**: Located at [links.kelev.dev](https://links.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-links. My links, similar to linktree
 
 - **monitoring**: Located at [monitoring.kelev.dev](https://monitoring.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-monitoring. Monitoring of the hobby-hoster instance itself. Private and inaccessable to the public.
+
+- **dash**: Located at [dash.kelev.dev](https://dash.kelev.dev). Hosted at https://github.com/skamensky/hobby-hoster-dash. A frontend to postgres. Here just because I wanted to check it out. Username is `admin`, password is `admin`.
 <!--INJECT_SUBDOMAINS_END-->
